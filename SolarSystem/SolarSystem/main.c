@@ -8,11 +8,9 @@
 #include <GL/glut.h>
 #endif
 
-
 #ifndef M_PI
 #define M_PI 3.14159265
 #endif
-
 
 struct planet_struct {
 	GLfloat size;
@@ -51,7 +49,7 @@ GLfloat materials[24][4][4] = {{{0.0215, 0.1745, 0.0215, 1.0}, {0.07568, 0.61424
 	{{0.2125, 0.1275, 0.054, 1.0}, {0.714, 0.4284, 0.18144, 1.}, {0.393548, 0.271906, 0.166721, 1.0}, {0.2, 0.2, 0.2, 0.2}},
 	{{0.25, 0.25, 0.25, 1.0}, {0.4, 0.4, 0.4, 1.0}, {0.774597, 0.774597, 0.774597, 1.0}, {0.6, 0.6, 0.6, 0.6}},
 	{{0.19125, 0.0735, 0.0225, 1.0}, {0.7038, 0.27048, 0.0828, 1.0}, {0.256777, 0.137622, 0.086014, 1.0}, {0.1, 0.1, 0.1, 0.1}},
-	{{0.24725, 0.1995, 0.0745, 1.0}, {0.75164, 0.60648, 0.22648, 1.0}, {0.628281, 0.555802, 0.366065, 1.0}, {0.4, 0.4, 0.4, 0.4}},
+	{{0.24725, 0.1995, 0.0745, 1.0}, {0.75164, 0.60648, 0.22648, 1.0}, {0.628281, 0.555802, 0.366065, 1.0}, {0.6, 0.5, 0.5, 0.0}},
 	{{0.19225, 0.19225, 0.19225, 1.0}, {0.50754, 0.50754, 0.50754, 1.0}, {0.508273, 0.508273, 0.508273, 1.0}, {0.4, 0.4, 0.4, 0.4}},
 	{{0.0, 0.0, 0.0, 1.0}, {0.01, 0.01, 0.01, 1.0}, {0.50, 0.50, 0.50, 1.0}, {0.25, 0.25, 0.25, 0.25}},
 	{{0.0, 0.1, 0.06, 1.0}, {0.0, 0.50980392, 0.50980392, 1.0}, {0.50196078, 0.50196078, 0.50196078, 1.0}, {0.25, 0.25, 0.25, 0.25}},
@@ -206,7 +204,7 @@ static GLfloat deimosTilt = 0.897;
 static GLfloat deimosDistance = 2.7633;
 static GLfloat deimosInclination = 1.793;
 //Jupiter's Data
-static GLfloat jupiterSize = 10.863;
+static GLfloat jupiterSize = 5.263;
 static GLfloat jupiterTranslation = 160.0;
 static GLfloat jupiterTranslationSpeed = 0.084298445/10;
 static GLfloat jupiterRotation = 0.0;
@@ -251,7 +249,7 @@ static GLfloat callistoTilt = 0.356;
 static GLfloat callistoDistance = 13.609;
 static GLfloat callistoInclination = 0.192;
 //Saturn's Data
-static GLfloat saturnSize = 9.001;
+static GLfloat saturnSize = 4.801;
 static GLfloat saturnTranslation = 0.0;
 static GLfloat saturnTranslationSpeed = 0.033958742/10;
 static GLfloat saturnRotation = 0.0;
@@ -287,7 +285,7 @@ static GLfloat rheaTilt = 0.029;
 static GLfloat rheaDistance = 4.5979;
 static GLfloat rheaInclination = 0.331;
 //Uranus' Data
-static GLfloat uranusSize = 3.9680;
+static GLfloat uranusSize = 2.9680;
 static GLfloat uranusTranslation = 240.0;
 static GLfloat uranusTranslationSpeed = 0.011902375/10;
 static GLfloat uranusRotation = 0.0;
@@ -296,7 +294,7 @@ static GLfloat uranusTilt = 97.77;
 static GLfloat uranusDistance = 65.0;
 static GLfloat uranusInclination = 0.76986;
 //Neptune' Data
-static GLfloat neptuneSize = 3.8559;
+static GLfloat neptuneSize = 2.6559;
 static GLfloat neptuneTranslation = 280.0;
 static GLfloat neptuneTranslationSpeed = 0.0060682808/10;
 static GLfloat neptuneRotation = 0.0;
@@ -380,6 +378,7 @@ void setMaterial(int matNum)
     glMaterialfv(GL_FRONT, GL_DIFFUSE, materials[matNum][1]);
     glMaterialfv(GL_FRONT, GL_SPECULAR, materials[matNum][2]);
     glMaterialf(GL_FRONT, GL_SHININESS, materials[matNum][3][0] * 128.0);
+	glMaterialfv(GL_FRONT, GL_EMISSION, materials[matNum][3]);
 }
 
 void setActiveViewport(int x, int y)
@@ -930,6 +929,7 @@ void mouseZoomRotate(int x, int y)
 
 void keyHandler(unsigned char key, int x, int y)
 {
+	//printf("%c\n", key);
 	int i = 0, j = 0;
 	switch(key)
 	{
@@ -1039,6 +1039,14 @@ void keyHandler(unsigned char key, int x, int y)
 		case 'q':
 			exit(0);
 			break;
+		case 'u' :
+		case 'U' :
+			persAngle = persAngle + 15;
+			break;
+		case 'd' :
+		case 'D' :
+			persAngle = persAngle - 15;
+			break;
 	}
 	glutPostRedisplay();
 }
@@ -1109,11 +1117,15 @@ void myinit(void)
 	
 	/* Your specular light could be different */
 	glLightfv(GL_LIGHT0, GL_SPECULAR, white_light);
-	glLightfv(GL_LIGHT1, GL_SPECULAR, white_light);
 	glLightfv(GL_LIGHT0, GL_AMBIENT, white_light);
-	glLightfv(GL_LIGHT1, GL_AMBIENT, white_light);
 	glLightfv(GL_LIGHT0, GL_DIFFUSE, white_light);
+	glLightfv(GL_LIGHT0, GL_EMISSION, white_light);
+	
+	glLightfv(GL_LIGHT1, GL_SPECULAR, white_light);
+	glLightfv(GL_LIGHT1, GL_AMBIENT, white_light);
 	glLightfv(GL_LIGHT1, GL_DIFFUSE, white_light);
+	glLightfv(GL_LIGHT1, GL_EMISSION, white_light);
+	
 	glLightModelfv(GL_LIGHT_MODEL_AMBIENT, lmodel_ambient);
 	
 	/* Even though you set stuff, you need to enable these features */
@@ -1237,7 +1249,7 @@ int main(int argc, char **argv)
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
 	glutInitWindowSize(500, 500);
-	glutCreateWindow("Solar System");
+	glutCreateWindow("Solar System with Viewports");
 	glutDisplayFunc(display);
 	glutMouseFunc(mouse);
 	glutMotionFunc(mouseZoomRotate);
