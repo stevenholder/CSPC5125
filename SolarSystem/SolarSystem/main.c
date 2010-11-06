@@ -316,7 +316,7 @@ static GLfloat plutoInclination = 17.14175;
 
 int mSet; /* starting point of set of materials */
 int cSet; /* stating point of set of colors */
-int persAngle = 60;
+int persAngle = 0;
 
 
 void appendElement(linkedElement * theList, planet * newPlanet)
@@ -1086,7 +1086,8 @@ void display(void)
 	glViewport(ww/2, 0, ww/2,wh/2);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	gluPerspective(persAngle, (GLdouble)ww/(GLdouble)wh, 0.5, 1000);
+	glRotatef(persAngle, 1.0f, 0.0f, 0.0f); //Rotate the camera
+	gluPerspective(60, (GLdouble)ww/(GLdouble)wh, 0.5, 1000);
 	gluLookAt(eyeX, eyeY, eyeZ, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
@@ -1158,9 +1159,10 @@ void mymenu(int id)
 		case 11: //Sun
 			getPosition(getPlanet(planetList,0), tempPos);
 			printf("This planet is at (%f, %f, %f).\n", tempPos[0], tempPos[1], tempPos[2]);
-			eyeX = tempPos[0];
-			eyeY = tempPos[1];
-			eyeZ = tempPos[2];
+			radius = sqrt(pow(zoom, 2) + pow(zoom, 2) + pow(zoom, 2));
+			eyeX = radius * cos(theta/180.0 * M_PI) * sin(phi/180.0 * M_PI);
+			eyeY = radius * sin(theta/180.0 * M_PI) * sin(phi/180.0 * M_PI);
+			eyeZ = radius * cos(theta/180.0 * M_PI);
 			glutPostRedisplay();
 			break;
 		case 12: //Mercury
@@ -1168,7 +1170,7 @@ void mymenu(int id)
 			printf("This planet is at (%f, %f, %f).\n", tempPos[0], tempPos[1], tempPos[2]);
 			eyeX = tempPos[0];
 			eyeY = tempPos[1];
-			eyeZ = tempPos[2];
+			eyeZ = tempPos[2]-3;
 			glutPostRedisplay();
 			break;
 		case 13: //Venus
@@ -1176,7 +1178,7 @@ void mymenu(int id)
 			printf("This planet is at (%f, %f, %f).\n", tempPos[0], tempPos[1], tempPos[2]);
 			eyeX = tempPos[0];
 			eyeY = tempPos[1];
-			eyeZ = tempPos[2];
+			eyeZ = tempPos[2]-3;
 			glutPostRedisplay();
 			break;
 		case 14: //Earth
@@ -1184,47 +1186,47 @@ void mymenu(int id)
 			printf("This planet is at (%f, %f, %f).\n", tempPos[0], tempPos[1], tempPos[2]);
 			eyeX = tempPos[0];
 			eyeY = tempPos[1];
-			eyeZ = tempPos[2];
+			eyeZ = tempPos[2]-5;
 			glutPostRedisplay();
 			break;
 		case 15: //Mars
 			getPosition(getPlanet(planetList,4), tempPos);
 			printf("This planet is at (%f, %f, %f).\n", tempPos[0], tempPos[1], tempPos[2]);
-			eyeX = tempPos[0];
+			eyeX = tempPos[0]-1;
 			eyeY = tempPos[1];
-			eyeZ = tempPos[2];
+			eyeZ = tempPos[2]-2;
 			glutPostRedisplay();
 			break;
 		case 16: //Jupiter
 			getPosition(getPlanet(planetList,5), tempPos);
 			printf("This planet is at (%f, %f, %f).\n", tempPos[0], tempPos[1], tempPos[2]);
-			eyeX = tempPos[0];
-			eyeY = tempPos[1];
-			eyeZ = tempPos[2];
+			eyeX = tempPos[0]-20;
+			eyeY = tempPos[1]-15;
+			eyeZ = tempPos[2]-10;
 			glutPostRedisplay();
 			break;
 		case 17: //Saturn
 			getPosition(getPlanet(planetList,6), tempPos);
 			printf("This planet is at (%f, %f, %f).\n", tempPos[0], tempPos[1], tempPos[2]);
-			eyeX = tempPos[0];
-			eyeY = tempPos[1];
-			eyeZ = tempPos[2];
+			eyeX = tempPos[0]-5;
+			eyeY = tempPos[1]+2;
+			eyeZ = tempPos[2]-6;
 			glutPostRedisplay();
 			break;
 		case 18: //Uranus
 			getPosition(getPlanet(planetList,7), tempPos);
 			printf("This planet is at (%f, %f, %f).\n", tempPos[0], tempPos[1], tempPos[2]);
-			eyeX = tempPos[0];
+			eyeX = tempPos[0]+2;
 			eyeY = tempPos[1];
-			eyeZ = tempPos[2];
+			eyeZ = tempPos[2]+7;
 			glutPostRedisplay();
 			break;
 		case 19: //Neptune
 			getPosition(getPlanet(planetList,8), tempPos);
 			printf("This planet is at (%f, %f, %f).\n", tempPos[0], tempPos[1], tempPos[2]);
-			eyeX = tempPos[0];
+			eyeX = tempPos[0]-2;
 			eyeY = tempPos[1];
-			eyeZ = tempPos[2];
+			eyeZ = tempPos[2]+7;
 			glutPostRedisplay();
 			break;
 		case 20: //Pluto
@@ -1235,7 +1237,27 @@ void mymenu(int id)
 			eyeZ = tempPos[2];
 			glutPostRedisplay();
 			break;
-
+		case 21 :
+			persAngle = -45;
+			break;
+		case 22 :
+			persAngle = -30;
+			break;
+		case 23 :
+			persAngle = -15;
+			break;
+		case 24 :
+			persAngle = 0;
+			break;
+		case 25 :
+			persAngle = 15;
+			break;
+		case 26 :
+			persAngle = 30;
+			break;
+		case 27 :
+			persAngle = 45;
+			break;
 		default:
 			break;
 	}
@@ -1244,12 +1266,12 @@ void mymenu(int id)
 
 int main(int argc, char **argv)
 {
-	int menu_id, planet_menu;
+	int menu_id, planet_menu, view_menu;
 	mSet = 0;
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
 	glutInitWindowSize(500, 500);
-	glutCreateWindow("Solar System with Viewports");
+	glutCreateWindow("Solar System");
 	glutDisplayFunc(display);
 	glutMouseFunc(mouse);
 	glutMotionFunc(mouseZoomRotate);
@@ -1269,10 +1291,20 @@ int main(int argc, char **argv)
 	glutAddMenuEntry("Uranus", 18);
 	glutAddMenuEntry("Neptune", 19);
 	glutAddMenuEntry("Pluto", 20);
-	
+
+	view_menu = glutCreateMenu(mymenu);
+	glutAddMenuEntry("-45", 21);
+	glutAddMenuEntry("-30", 22);
+	glutAddMenuEntry("-15", 23);
+	glutAddMenuEntry("0", 24);
+	glutAddMenuEntry("15", 25);
+	glutAddMenuEntry("30", 26);
+	glutAddMenuEntry("45", 27);
+
 	menu_id = glutCreateMenu(mymenu);
 	glutAddMenuEntry("clear Screen", 1);
 	glutAddSubMenu("view planet", planet_menu);
+	glutAddSubMenu("change angle", view_menu);
 	glutAddMenuEntry("exit", 2);
 	
 	glutAttachMenu(GLUT_RIGHT_BUTTON);
