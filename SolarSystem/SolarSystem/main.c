@@ -8,6 +8,8 @@
 #include <GL/glut.h>
 #endif
 
+#include <SOIL.h>
+
 #ifndef M_PI
 #define M_PI 3.14159265
 #endif
@@ -21,6 +23,7 @@ struct planet_struct {
 	GLfloat tilt;
 	GLfloat distance;
 	GLfloat inclination;
+	GLuint texture;
 	struct list_element * satellites;
 	GLfloat position[3];
 	int material;
@@ -131,9 +134,13 @@ static GLint lastX = 0, lastY = 0;
 static int mouseButton, currentModifiers;
 static int activeView = CSU_LEFTVIEW;
 static GLdouble theta = 45.0, phi = 45.0;
-static GLfloat eyeX, eyeY, eyeZ;
+static GLfloat eyeX, eyeY, eyeZ, lookX, lookY, lookZ;
 static GLdouble radius;
 static int animate = 0;
+static int count = 0;
+
+GLuint sun_texture, earth_texture, mars_texture, venus_texture, mercury_texture, jupiter_texture, saturn_texture, uranus_texture, neptune_texture, pluto_texture, 
+moon_texture, phobos_texture, deimos_texture, titan_texture, iapetus_texture, io_texture, rhea_texture, europa_texture, ganymede_texture, callisto_texture, asteroid_texture;
 
 // Sun's data
 static GLfloat sunSize = 2.0;
@@ -156,7 +163,7 @@ static GLfloat venusTranslationSpeed = 1.6254949/10;
 static GLfloat venusRotation = 0.0;
 static GLfloat venusRotationSpeed = -1.0 * 10;
 static GLfloat venusTilt = 177.36;
-static GLfloat venusDistance = 7.0;
+static GLfloat venusDistance = 8.0;
 static GLfloat venusInclination = 3.39471;
 // Earth's data
 static GLfloat earthSize = 1.0;
@@ -165,7 +172,7 @@ static GLfloat earthTranslationSpeed = 0.99998260/10;
 static GLfloat earthRotation = 0.0;
 static GLfloat earthRotationSpeed = 0.41038 * 10;//0.0041038 * 10;
 static GLfloat earthTilt = 23.45;
-static GLfloat earthDistance = 11.0;
+static GLfloat earthDistance = 12.0;
 static GLfloat earthInclination = 0.00005;
 // Moon's Data
 static GLfloat moonSize = 0.27287;
@@ -183,7 +190,7 @@ static GLfloat marsTranslationSpeed = 0.53167519/10;
 static GLfloat marsRotation = 0.0;
 static GLfloat marsRotationSpeed = 0.42219 * 10;//0.0042219 * 10;
 static GLfloat marsTilt = 25.19;
-static GLfloat marsDistance = 14.0;
+static GLfloat marsDistance = 17.0;
 static GLfloat marsInclination = 1.85061;
 // Phobos' Data
 static GLfloat phobosSize = 0.0174;
@@ -210,7 +217,7 @@ static GLfloat jupiterTranslationSpeed = 0.084298445/10;
 static GLfloat jupiterRotation = 0.0;
 static GLfloat jupiterRotationSpeed = 0.17017 * 10;//0.0017017 * 10;
 static GLfloat jupiterTilt = 3.13;
-static GLfloat jupiterDistance = 28.0;
+static GLfloat jupiterDistance = 42.0;
 static GLfloat jupiterInclination = 1.30530;
 // Io's Data 
 static GLfloat ioSize = 0.28608;
@@ -255,7 +262,7 @@ static GLfloat saturnTranslationSpeed = 0.033958742/10;
 static GLfloat saturnRotation = 0.0;
 static GLfloat saturnRotationSpeed = 0.1800 * 10;//0.001800 * 10;
 static GLfloat saturnTilt = 26.73;
-static GLfloat saturnDistance = 52.0;
+static GLfloat saturnDistance = 55.0;
 static GLfloat saturnInclination = 2.48446;
 // Titan's Data  
 static GLfloat titanSize = 0.40448;
@@ -273,7 +280,7 @@ static GLfloat iapetusTranslationSpeed = 4.604/10;
 static GLfloat iapetusRotation = 0.0;
 static GLfloat iapetusRotationSpeed = 0.00003778 * 10;//0.0000003778 * 10;
 static GLfloat iapetusTilt = 14.968;
-static GLfloat iapetusDistance = 31.063;
+static GLfloat iapetusDistance = 15.063;
 static GLfloat iapetusInclination = 7.489;
 // Rhea's Data
 static GLfloat rheaSize = 0.1201;
@@ -317,6 +324,326 @@ static GLfloat plutoInclination = 17.14175;
 int mSet; /* starting point of set of materials */
 int cSet; /* stating point of set of colors */
 int persAngle = 0;
+
+
+#ifndef M_PI
+#define M_PI 3.14159265
+#endif
+#ifndef TWOPI
+#define TWOPI 6.283185308
+#endif
+
+struct coord_struct {
+	GLfloat x;
+	GLfloat y;
+	GLfloat z;
+};
+
+typedef struct coord_struct XYZ;
+
+void CreateSphere(XYZ c,double r,int n,int method, double theta1,double theta2,double phi1,double phi2);
+
+
+GLfloat gX = 0.0, gY = 0.0, gZ = 0.0;
+
+int mSet; /* starting point of set of materials */
+int cSet; /* stating point of set of colors */
+
+struct pElement {
+	GLfloat ipX, ipY, ipZ;
+	GLfloat pX, pY, pZ;
+	GLfloat theta, dTheta;
+	GLfloat vX, vY, vZ;
+	GLuint texture;
+};
+
+typedef struct pElement particle;
+
+void updateParticle(particle * aParticle)
+{
+	aParticle->pX += aParticle->vX + gX;
+	aParticle->pY += aParticle->vY + gY;
+	aParticle->pZ += aParticle->vZ + gZ;
+	aParticle->theta += aParticle->dTheta;
+}
+
+void drawParticle(particle * aParticle)
+{
+	XYZ center;
+	glPushMatrix();
+	glTranslatef(aParticle->pX, aParticle->pY, aParticle->pZ);
+	glRotatef(aParticle->theta, 1.0, 1.0, 1.0);
+
+	center.x = 0.0;
+	center.y = 0.0;
+	center.z = 0.0;
+
+	glEnable(GL_TEXTURE_2D);
+	glBindTexture(GL_TEXTURE_2D, aParticle->texture);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR);
+
+	glRotatef(27.0, 1.0, 0.0, 0.0);
+	glRotatef(theta, 0.0, 1.0, 0.0);
+	CreateSphere(center, 0.15, 24, 0, 0.0, TWOPI, -M_PI/2, M_PI/2);
+
+	glDisable(GL_TEXTURE_2D);
+
+	glPopMatrix();
+}
+
+particle * createParticle(void)
+{
+	particle * tempParticle;
+
+	tempParticle = (particle *)malloc(sizeof(particle));
+	tempParticle->pX = tempParticle->pY = tempParticle->pZ = 0.0;
+	tempParticle->ipX = tempParticle->ipY = tempParticle->ipZ = 0.0;
+	tempParticle->vX = tempParticle->vY = tempParticle->vZ = 0.0;
+	tempParticle->theta = tempParticle->dTheta = 0.0;
+	return tempParticle;
+}
+
+
+
+struct pList {
+	particle * aParticle;
+	struct pList * next;
+};
+typedef struct pList listElement;
+
+listElement * createListElement(particle * aParticle)
+{
+	listElement * tempElement;
+	tempElement = (listElement *)malloc(sizeof(listElement));
+	tempElement->aParticle = aParticle;
+	tempElement->next = 0;
+	return tempElement;
+}
+
+void appendListElement(listElement * theList, particle * aParticle)
+{
+	listElement * next = theList;
+	while(next->next)
+	{
+		next=next->next;
+	}
+	next->next = createListElement(aParticle);
+}
+
+void updateList(listElement * theList)
+{
+	listElement * next = theList;
+	while(next)
+	{
+		updateParticle(next->aParticle);
+		next = next->next;
+	}
+}
+
+void drawList(listElement * theList)
+{
+	listElement * next = theList;
+	while(next)
+	{
+		drawParticle(next->aParticle);
+		next = next->next;
+	}
+}
+
+listElement * aList;
+
+struct particle_system {
+	GLfloat sX, sY, sZ;
+	listElement * pList;
+};
+
+typedef struct particle_system pSystem;
+
+pSystem * createParticleSystem(GLint nParticles)
+{
+	float x=0;
+	GLint i;
+	particle * globalParticle;
+	pSystem * tempParticleSystem;
+
+	tempParticleSystem = (pSystem *)malloc(sizeof(pSystem));
+	tempParticleSystem->sX = tempParticleSystem->sY = tempParticleSystem->sZ = 0.0;
+
+	srand(1000);
+
+	globalParticle = createParticle();
+	globalParticle->pX = 0;
+	globalParticle->pZ = 30;
+	globalParticle->dTheta = (GLfloat)rand()/32767*20.0;
+	globalParticle->texture = asteroid_texture;
+
+	tempParticleSystem->pList = createListElement(globalParticle);
+
+	//for(i = 0; i < nParticles; i++)
+	//{
+	//	globalParticle = createParticle();
+	//	globalParticle->pX = 0;
+	//	globalParticle->pZ = 10;
+
+	//	printf("px %i\n", globalParticle->pX);
+	//	globalParticle->dTheta = (GLfloat)rand()/32767*20.0;
+	//	globalParticle->texture = asteroid_texture;
+	//	appendListElement(tempParticleSystem->pList, globalParticle);
+	//}
+
+
+	for (x = 0; x < M_PI*2; x=x+M_PI/10) {
+		globalParticle = createParticle();
+		globalParticle->pX = 24*cos(x);
+		globalParticle->pZ = 24*sin(x);
+		//printf("px %f , px %f\n", globalParticle->pX, globalParticle->pZ);
+		globalParticle->dTheta = (GLfloat)rand()/32767*20.0;
+		globalParticle->texture = asteroid_texture;
+		appendListElement(tempParticleSystem->pList, globalParticle);
+	}
+
+	for (x = 0; x < M_PI*2; x=x+M_PI/10) {
+		globalParticle = createParticle();
+		globalParticle->pX = 24*cos(x+25);
+		globalParticle->pZ = 24*sin(x+25);
+		//printf("px %f , px %f\n", globalParticle->pX, globalParticle->pZ);
+		globalParticle->dTheta = (GLfloat)rand()/32767*20.0;
+		globalParticle->texture = asteroid_texture;
+		appendListElement(tempParticleSystem->pList, globalParticle);
+	}
+
+	for (x = 0; x < M_PI*2; x=x+M_PI/10) {
+		globalParticle = createParticle();
+		globalParticle->pX = 23*cos(x+5);
+		globalParticle->pZ = 23*sin(x+5);
+		//printf("px %f , px %f\n", globalParticle->pX, globalParticle->pZ);
+		globalParticle->dTheta = (GLfloat)rand()/32767*20.0;
+		globalParticle->texture = asteroid_texture;
+		appendListElement(tempParticleSystem->pList, globalParticle);
+	}
+
+	for (x = 0; x < M_PI*2; x=x+M_PI/10) {
+		globalParticle = createParticle();
+		globalParticle->pX = 23*cos(x+35);
+		globalParticle->pZ = 23*sin(x+35);
+		//printf("px %f , px %f\n", globalParticle->pX, globalParticle->pZ);
+		globalParticle->dTheta = (GLfloat)rand()/32767*20.0;
+		globalParticle->texture = asteroid_texture;
+		appendListElement(tempParticleSystem->pList, globalParticle);
+	}
+
+	for (x = 0; x < M_PI*2; x=x+M_PI/10) {
+		globalParticle = createParticle();
+		globalParticle->pX = 23.5*cos(x);
+		globalParticle->pZ = 23.5*sin(x);
+		//printf("px %f , px %f\n", globalParticle->pX, globalParticle->pZ);
+		globalParticle->dTheta = (GLfloat)rand()/32767*20.0;
+		globalParticle->texture = asteroid_texture;
+		appendListElement(tempParticleSystem->pList, globalParticle);
+	}
+
+	return tempParticleSystem;
+}
+
+void updateParticleSystem(pSystem * theSystem)
+{
+	updateList(theSystem->pList);
+}
+
+void drawParticleSystem(pSystem * theSystem)
+{
+	glPushMatrix();
+	glTranslatef(theSystem->sX, theSystem->sY, theSystem->sZ);
+	drawList(theSystem->pList);
+	glPopMatrix();
+}
+
+pSystem * mainSystem;
+
+/*
+   Create a sphere centered at c, with radius r, and precision n
+   Draw a point for zero radius spheres
+   Use CCW facet ordering
+   "method" is 0 for quads, 1 for triangles
+      (quads look nicer in wireframe mode)
+   Partial spheres can be created using theta1->theta2, phi1->phi2
+   in radians 0 < theta < 2pi, -pi/2 < phi < pi/2
+*/
+void CreateSphere(XYZ c,double r,int n,int method, double theta1,double theta2,double phi1,double phi2)
+{
+   int i,j;
+   XYZ e,p,e2,p2;
+   double jdivn,j1divn,idivn,dosdivn,unodivn=1/(double)n,ndiv2=(double)n/2,t1,t2,t3,cost1,cost2,cte1,cte3;
+   cte3 = (theta2-theta1)/n;
+   cte1 = (phi2-phi1)/ndiv2;
+   dosdivn = 2*unodivn;
+   /* Handle special cases */
+   if (r < 0)
+      r = -r;
+   if (n < 0){
+      n = -n;
+      ndiv2 = -ndiv2;
+   }
+   if (n < 4 || r <= 0) {
+      glBegin(GL_POINTS);
+      glVertex3f(c.x,c.y,c.z);
+      glEnd();
+      return;
+   }
+
+   t2=phi1;
+   cost2=cos(phi1);
+   j1divn=0;
+   glRotatef(180.0, 1.0, 0.0, 0.0);
+   for (j=0;j<ndiv2;j++) {
+      t1 = t2;//t1 = phi1 + j * cte1;
+      t2 += cte1;//t2 = phi1 + (j + 1) * cte1;
+      t3 = theta1 - cte3;
+      cost1 = cost2;//cost1=cos(t1);
+      cost2 = cos(t2);
+      e.y = sin(t1);
+      e2.y = sin(t2);
+      p.y = c.y + r * e.y;
+      p2.y = c.y + r * e2.y;
+
+      if (method == 0)
+         glBegin(GL_QUAD_STRIP);
+      else
+         glBegin(GL_TRIANGLE_STRIP);
+
+      idivn=0;
+      jdivn=j1divn;
+      j1divn+=dosdivn;//=2*(j+1)/(double)n;
+      for (i=0;i<=n;i++) {
+       //t3 = theta1 + i * (theta2 - theta1) / n;
+         t3 += cte3;
+         e.x = cost1 * cos(t3);
+       //e.y = sin(t1);
+         e.z = cost1 * sin(t3);
+         p.x = c.x + r * e.x;
+       //p.y = c.y + r * e.y;
+         p.z = c.z + r * e.z;
+         glNormal3f(e.x,e.y,e.z);
+         glTexCoord2f(idivn,jdivn);
+         glVertex3f(p.x,p.y,p.z);
+
+         e2.x = cost2 * cos(t3);
+       //e.y = sin(t2);
+         e2.z = cost2 * sin(t3);
+         p2.x = c.x + r * e2.x;
+       //p.y = c.y + r * e.y;
+         p2.z = c.z + r * e2.z;
+         glNormal3f(e2.x,e2.y,e2.z);
+         glTexCoord2f(idivn,j1divn);
+         glVertex3f(p2.x,p2.y,p2.z);
+         idivn += unodivn;
+      }
+      glEnd();
+   }
+}
 
 
 void appendElement(linkedElement * theList, planet * newPlanet)
@@ -409,6 +736,8 @@ void setActiveViewport(int x, int y)
 	}
 }
 
+void movePlanets(linkedElement * theList);
+
 void movePlanet(planet *thePlanet)
 {
 	thePlanet->translation += thePlanet->translationSpeed;
@@ -420,6 +749,11 @@ void movePlanet(planet *thePlanet)
 	if(thePlanet->rotation >= 360.0)
 	{
 		thePlanet->rotation = thePlanet->rotation - 360.0;
+	}
+
+	if(thePlanet->satellites)
+	{
+		movePlanets(thePlanet->satellites);
 	}
 	
 }
@@ -440,11 +774,19 @@ void spinDisplay(void)
 	glutPostRedisplay();
 }
 
+void updateSystem(void)
+{
+	//updateList(aList);
+	updateParticleSystem(mainSystem);
+	glutPostRedisplay();
+}
+
 void animateSystem(int value)
 {
 	if(animate)
 	{
 		spinDisplay();
+		updateSystem();
 		glutTimerFunc(33, animateSystem, -1);
 	}
 }
@@ -479,6 +821,7 @@ void reshape(int w, int h)
 {
 	ww = w;
 	wh = h;
+	glViewport(0, 0, w, h);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	adjustOrtho();
@@ -487,7 +830,7 @@ void reshape(int w, int h)
 
 void mouse(int button, int state, int x, int y)
 {
-	GLfloat tempPos[3];
+	//GLfloat tempPos[3];
 	
 	mouseButton = button;
 	setActiveViewport(x, y);
@@ -524,8 +867,9 @@ void drawPlanetList(linkedElement *theList);
 
 void drawPlanet(planet *thePlanet)
 {
+	XYZ center;
 	GLfloat m[16];
-	
+
 	glRotatef(thePlanet->translation, 0.0, 1.0, 0.0);
 	glTranslatef(thePlanet->distance, 0.0, 0.0);
 	glRotatef(thePlanet->tilt, 1.0, 0.0, 0.0);
@@ -537,9 +881,39 @@ void drawPlanet(planet *thePlanet)
 	}
 	glPopMatrix();
 	glRotatef(90, 1.0, 0.0, 0.0);
-	setMaterial(thePlanet->material);
+	//setMaterial(thePlanet->material);
 	glColor4fv(colors[thePlanet->color]);
-	glutSolidSphere(thePlanet->size, 12, 12);
+	//glutSolidSphere(thePlanet->size, 12, 12);
+
+
+	center.x = 0.0;
+	center.y = 0.0;
+	center.z = 0.0;
+
+	glEnable(GL_TEXTURE_2D);
+	glBindTexture(GL_TEXTURE_2D, thePlanet->texture);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR);
+
+	if(thePlanet->size == sunSize) { //Drawing the sun
+		GLfloat mat_em[] = {1.0, 0.9, 0.9, 0.0};
+		setMaterial(thePlanet->material);
+		glMaterialfv(GL_FRONT, GL_EMISSION, mat_em);
+	} else {
+		GLfloat mat_emv[] = {0.1, 0.1, 0.1, 0.0};
+		setMaterial(CSU_WHITE_PLASTIC);
+		glMaterialfv(GL_FRONT, GL_EMISSION, mat_emv);
+	}
+
+
+	glRotatef(27.0, 1.0, 0.0, 0.0);
+	glRotatef(theta, 0.0, 1.0, 0.0);
+	CreateSphere(center, thePlanet->size, 24, 0, 0.0, TWOPI, -M_PI/2, M_PI/2);
+
+	glDisable(GL_TEXTURE_2D);
+
 	glGetFloatv(GL_MODELVIEW_MATRIX, m);
 	thePlanet->position[0] = m[12];
 	thePlanet->position[1] = m[13];
@@ -588,6 +962,7 @@ void buildSolarSystem()
 	tempPlanet->tilt = sunTilt;
 	tempPlanet->distance = 0.0;
 	tempPlanet->material = CSU_GOLD;
+	tempPlanet->texture = sun_texture;
 	tempPlanet->color = CSU_YELLOW;
 	planetList->thePlanet = tempPlanet;
 	
@@ -599,6 +974,7 @@ void buildSolarSystem()
 	tempPlanet->distance = mercuryDistance;
 	tempPlanet->inclination = mercuryInclination;
 	tempPlanet->material = CSU_BRONZE;
+	tempPlanet->texture = mercury_texture;
 	tempPlanet->color = CSU_RED;
 	tempPlanet->tilt = mercuryTilt;
 	
@@ -612,6 +988,7 @@ void buildSolarSystem()
 	tempPlanet->distance = venusDistance;
 	tempPlanet->inclination = venusInclination;
 	tempPlanet->material = CSU_PEARL;
+	tempPlanet->texture = venus_texture;
 	tempPlanet->color = CSU_WHITE;
 	tempPlanet->tilt = venusTilt;
 	
@@ -626,6 +1003,7 @@ void buildSolarSystem()
 	tempPlanet->inclination = earthInclination;
 	tempPlanet->material = CSU_TURQUOISE;
 	tempPlanet->color = CSU_CYAN;
+	tempPlanet->texture = earth_texture;
 	tempPlanet->tilt = earthTilt;
 	
 	tempSatellite = createPlanet(moonSize);
@@ -638,6 +1016,7 @@ void buildSolarSystem()
 	tempSatellite->material = CSU_PEARL;
 	tempSatellite->color = CSU_WHITE;
 	tempSatellite->tilt = moonTilt;
+	tempSatellite->texture = moon_texture;
 	
 	// The next line creates the starting point of a linked list for the satellites of the current planet
 	// and sets the first satellite
@@ -661,8 +1040,9 @@ void buildSolarSystem()
 	tempPlanet->material = CSU_RUBY;
 	tempPlanet->color = CSU_RED;
 	tempPlanet->tilt = marsTilt;
+	tempPlanet->texture = mars_texture;
 	
-	//Phobos Deimos
+	//Phobos Deimos 
 	
 	tempSatellite = createPlanet(phobosSize);
 	tempSatellite->rotation = phobosRotation;
@@ -673,6 +1053,7 @@ void buildSolarSystem()
 	tempSatellite->inclination = phobosInclination;
 	tempSatellite->material = CSU_PEARL;
 	tempSatellite->color = CSU_WHITE;
+	tempSatellite->texture = phobos_texture;
 	tempSatellite->tilt = phobosTilt;
 	
 	tempPlanet->satellites = (linkedElement *)malloc(sizeof(linkedElement));
@@ -688,6 +1069,7 @@ void buildSolarSystem()
 	tempSatellite->inclination = deimosInclination;
 	tempSatellite->material = CSU_PEARL;
 	tempSatellite->color = CSU_WHITE;
+	tempSatellite->texture = deimos_texture;
 	tempSatellite->tilt = deimosTilt;
 	
 	appendElement(tempPlanet->satellites, tempSatellite);
@@ -707,6 +1089,7 @@ void buildSolarSystem()
 	tempPlanet->inclination = jupiterInclination;
 	tempPlanet->material = CSU_BRONZE;
 	tempPlanet->color = CSU_WHITE;
+	tempPlanet->texture = jupiter_texture;
 	tempPlanet->tilt = jupiterTilt;
 	
 	//io europa ganymede callisto
@@ -720,6 +1103,7 @@ void buildSolarSystem()
 	tempSatellite->material = CSU_PEARL;
 	tempSatellite->color = CSU_WHITE;
 	tempSatellite->tilt = ioTilt;
+	tempSatellite->texture = io_texture;
 	
 	tempPlanet->satellites = (linkedElement *)malloc(sizeof(linkedElement));
 	tempPlanet->satellites->thePlanet = tempSatellite;
@@ -734,6 +1118,7 @@ void buildSolarSystem()
 	tempSatellite->inclination = europaInclination;
 	tempSatellite->material = CSU_PEARL;
 	tempSatellite->color = CSU_WHITE;
+	tempSatellite->texture = europa_texture;
 	tempSatellite->tilt = europaTilt;
 	
 	appendElement(tempPlanet->satellites, tempSatellite);
@@ -747,6 +1132,7 @@ void buildSolarSystem()
 	tempSatellite->inclination = ganymedeInclination;
 	tempSatellite->material = CSU_PEARL;
 	tempSatellite->color = CSU_WHITE;
+	tempSatellite->texture = ganymede_texture;
 	tempSatellite->tilt = ganymedeTilt;
 	
 	appendElement(tempPlanet->satellites, tempSatellite);
@@ -761,6 +1147,7 @@ void buildSolarSystem()
 	tempSatellite->material = CSU_PEARL;
 	tempSatellite->color = CSU_WHITE;
 	tempSatellite->tilt = callistoTilt;
+	tempSatellite->texture = callisto_texture;
 	
 	appendElement(tempPlanet->satellites, tempSatellite);
 	
@@ -778,8 +1165,9 @@ void buildSolarSystem()
 	tempPlanet->material = CSU_BRASS;
 	tempPlanet->color = CSU_WHITE;
 	tempPlanet->tilt = saturnTilt;
+	tempPlanet->texture = saturn_texture;
 	
-	//titan iapetus rhea
+	//titan iapetus rhea 
 	
 	tempSatellite = createPlanet(titanSize);
 	tempSatellite->rotation = titanRotation;
@@ -791,6 +1179,7 @@ void buildSolarSystem()
 	tempSatellite->material = CSU_PEARL;
 	tempSatellite->color = CSU_WHITE;
 	tempSatellite->tilt = titanTilt;
+	tempSatellite->texture = titan_texture;
 	
 	tempPlanet->satellites = (linkedElement *)malloc(sizeof(linkedElement));
 	tempPlanet->satellites->thePlanet = tempSatellite;
@@ -806,6 +1195,7 @@ void buildSolarSystem()
 	tempSatellite->material = CSU_PEARL;
 	tempSatellite->color = CSU_WHITE;
 	tempSatellite->tilt = iapetusTilt;
+	tempSatellite->texture = iapetus_texture;
 	
 	appendElement(tempPlanet->satellites, tempSatellite);
 	
@@ -819,6 +1209,7 @@ void buildSolarSystem()
 	tempSatellite->material = CSU_PEARL;
 	tempSatellite->color = CSU_WHITE;
 	tempSatellite->tilt = rheaTilt;
+	tempSatellite->texture = rhea_texture;
 	
 	appendElement(tempPlanet->satellites, tempSatellite);
 	
@@ -836,6 +1227,7 @@ void buildSolarSystem()
 	tempPlanet->material = CSU_TURQUOISE;
 	tempPlanet->color = CSU_WHITE;
 	tempPlanet->tilt = uranusTilt;
+	tempPlanet->texture = uranus_texture;
 	
 	appendElement(planetList, tempPlanet);
 	
@@ -851,6 +1243,7 @@ void buildSolarSystem()
 	tempPlanet->material = CSU_EMERALD;
 	tempPlanet->color = CSU_WHITE;
 	tempPlanet->tilt = neptuneTilt;
+	tempPlanet->texture = neptune_texture;
 	
 	appendElement(planetList, tempPlanet);
 	
@@ -865,6 +1258,7 @@ void buildSolarSystem()
 	tempPlanet->inclination = plutoInclination;
 	tempPlanet->material = CSU_CYAN_RUBBER;
 	tempPlanet->color = CSU_WHITE;
+	tempPlanet->texture = pluto_texture;
 	tempPlanet->tilt = plutoTilt;
 	
 	appendElement(planetList, tempPlanet);
@@ -1056,41 +1450,42 @@ void display(void)
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glPushMatrix();
 	// Left Viewport (lower-left)
-	glViewport(0,0,ww/2, wh/2);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	glOrtho(left, right, bottom, top, near, far);
-	gluLookAt(1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-	drawSolarSystem();
-	// Front viewport (upper-right)
-	glViewport(ww/2,wh/2,ww/2,wh/2);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	glOrtho(left, right, bottom, top, near, far);
-	gluLookAt(0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-	drawSolarSystem();
-	// Top viewport (upper-left)
-	glViewport(0,wh/2,ww/2,wh/2);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	glOrtho(left, right, bottom, top, near, far);
-	gluLookAt(0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0);
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-	drawSolarSystem();
+	//glViewport(0,0,ww/2, wh/2);
+	//glMatrixMode(GL_PROJECTION);
+	//glLoadIdentity();
+	//glOrtho(left, right, bottom, top, near, far);
+	//gluLookAt(1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
+	//glMatrixMode(GL_MODELVIEW);
+	//glLoadIdentity();
+	//drawSolarSystem();
+	//// Front viewport (upper-right)
+	//glViewport(ww/2,wh/2,ww/2,wh/2);
+	//glMatrixMode(GL_PROJECTION);
+	//glLoadIdentity();
+	//glOrtho(left, right, bottom, top, near, far);
+	//gluLookAt(0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
+	//glMatrixMode(GL_MODELVIEW);
+	//glLoadIdentity();
+	//drawSolarSystem();
+	//// Top viewport (upper-left)
+	//glViewport(0,wh/2,ww/2,wh/2);
+	//glMatrixMode(GL_PROJECTION);
+	//glLoadIdentity();
+	//glOrtho(left, right, bottom, top, near, far);
+	//gluLookAt(0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0);
+	//glMatrixMode(GL_MODELVIEW);
+	//glLoadIdentity();
+	//drawSolarSystem();
 	// Perspective viewport (lower-right)
-	glViewport(ww/2, 0, ww/2,wh/2);
+	//glViewport(ww/2, 0, ww/2,wh/2);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	glRotatef(persAngle, 1.0f, 0.0f, 0.0f); //Rotate the camera
+	glRotatef(persAngle, 1.0, 0.0, 0.0); //Rotate the camera
 	gluPerspective(60, (GLdouble)ww/(GLdouble)wh, 0.5, 1000);
-	gluLookAt(eyeX, eyeY, eyeZ, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
+	gluLookAt(eyeX, eyeY, eyeZ, lookX, lookY, lookZ, 0.0, 1.0, 0.0);
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
+	drawParticleSystem(mainSystem);
 	drawSolarSystem();
 	glPopMatrix();
 	glutSwapBuffers();
@@ -1140,13 +1535,315 @@ void myinit(void)
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	
 	glutSetCursor(GLUT_CURSOR_CROSSHAIR);
-	
+
+		/* load an image file directly as a new OpenGL texture */
+	sun_texture = SOIL_load_OGL_texture
+	(
+		"sunmap.jpg",
+		SOIL_LOAD_AUTO,
+		SOIL_CREATE_NEW_ID,
+		SOIL_FLAG_MIPMAPS | SOIL_FLAG_INVERT_Y | SOIL_FLAG_NTSC_SAFE_RGB | SOIL_FLAG_COMPRESS_TO_DXT
+	);
+	printf("%i\n", sun_texture);
+	/* check for an error during the load process */
+	if( 0 == sun_texture )
+	{
+		printf( "SOIL loading error: '%s'\n", SOIL_last_result() );
+	}	
+
+	mercury_texture = SOIL_load_OGL_texture
+	(
+		"mercury.jpg",
+		SOIL_LOAD_AUTO,
+		SOIL_CREATE_NEW_ID,
+		SOIL_FLAG_MIPMAPS | SOIL_FLAG_INVERT_Y | SOIL_FLAG_NTSC_SAFE_RGB | SOIL_FLAG_COMPRESS_TO_DXT
+	);
+	printf("%i\n", mercury_texture);
+	/* check for an error during the load process */
+	if( 0 == mercury_texture )
+	{
+		printf( "SOIL loading error: '%s'\n", SOIL_last_result() );
+	}	
+
+	venus_texture = SOIL_load_OGL_texture
+	(
+		"venus.jpg",
+		SOIL_LOAD_AUTO,
+		SOIL_CREATE_NEW_ID,
+		SOIL_FLAG_MIPMAPS | SOIL_FLAG_INVERT_Y | SOIL_FLAG_NTSC_SAFE_RGB | SOIL_FLAG_COMPRESS_TO_DXT
+	);
+	printf("%i\n", venus_texture);
+	/* check for an error during the load process */
+	if( 0 == venus_texture )
+	{
+		printf( "SOIL loading error: '%s'\n", SOIL_last_result() );
+	}	
+
+	earth_texture = SOIL_load_OGL_texture
+	(
+		"earth.jpg",
+		SOIL_LOAD_AUTO,
+		SOIL_CREATE_NEW_ID,
+		SOIL_FLAG_MIPMAPS | SOIL_FLAG_INVERT_Y | SOIL_FLAG_NTSC_SAFE_RGB | SOIL_FLAG_COMPRESS_TO_DXT
+	);
+	printf("%i\n", earth_texture);
+	/* check for an error during the load process */
+	if( 0 == earth_texture )
+	{
+		printf( "SOIL loading error: '%s'\n", SOIL_last_result() );
+	}	
+
+	moon_texture = SOIL_load_OGL_texture
+	(
+		"moon.jpg",
+		SOIL_LOAD_AUTO,
+		SOIL_CREATE_NEW_ID,
+		SOIL_FLAG_MIPMAPS | SOIL_FLAG_INVERT_Y | SOIL_FLAG_NTSC_SAFE_RGB | SOIL_FLAG_COMPRESS_TO_DXT
+	);
+	printf("%i\n", moon_texture);
+	/* check for an error during the load process */
+	if( 0 == moon_texture )
+	{
+		printf( "SOIL loading error: '%s'\n", SOIL_last_result() );
+	}	
+
+	mars_texture = SOIL_load_OGL_texture
+	(
+		"mars.jpg",
+		SOIL_LOAD_AUTO,
+		SOIL_CREATE_NEW_ID,
+		SOIL_FLAG_MIPMAPS | SOIL_FLAG_INVERT_Y | SOIL_FLAG_NTSC_SAFE_RGB | SOIL_FLAG_COMPRESS_TO_DXT
+	);
+	printf("%i\n", mars_texture);
+	/* check for an error during the load process */
+	if( 0 == mars_texture )
+	{
+		printf( "SOIL loading error: '%s'\n", SOIL_last_result() );
+	}	
+
+	jupiter_texture = SOIL_load_OGL_texture
+	(
+		"jupiter.jpg",
+		SOIL_LOAD_AUTO,
+		SOIL_CREATE_NEW_ID,
+		SOIL_FLAG_MIPMAPS | SOIL_FLAG_INVERT_Y | SOIL_FLAG_NTSC_SAFE_RGB | SOIL_FLAG_COMPRESS_TO_DXT
+	);
+	printf("%i\n", jupiter_texture);
+	/* check for an error during the load process */
+	if( 0 == jupiter_texture )
+	{
+		printf( "SOIL loading error: '%s'\n", SOIL_last_result() );
+	}	
+
+	saturn_texture = SOIL_load_OGL_texture
+	(
+		"saturn.jpg",
+		SOIL_LOAD_AUTO,
+		SOIL_CREATE_NEW_ID,
+		SOIL_FLAG_MIPMAPS | SOIL_FLAG_INVERT_Y | SOIL_FLAG_NTSC_SAFE_RGB | SOIL_FLAG_COMPRESS_TO_DXT
+	);
+	printf("%i\n", saturn_texture);
+	/* check for an error during the load process */
+	if( 0 == saturn_texture )
+	{
+		printf( "SOIL loading error: '%s'\n", SOIL_last_result() );
+	}
+
+	neptune_texture = SOIL_load_OGL_texture
+	(
+		"neptune.jpg",
+		SOIL_LOAD_AUTO,
+		SOIL_CREATE_NEW_ID,
+		SOIL_FLAG_MIPMAPS | SOIL_FLAG_INVERT_Y | SOIL_FLAG_NTSC_SAFE_RGB | SOIL_FLAG_COMPRESS_TO_DXT
+	);
+	printf("%i\n", neptune_texture);
+	/* check for an error during the load process */
+	if( 0 == neptune_texture )
+	{
+		printf( "SOIL loading error: '%s'\n", SOIL_last_result() );
+	}
+
+	uranus_texture = SOIL_load_OGL_texture
+	(
+		"uranus.jpg",
+		SOIL_LOAD_AUTO,
+		SOIL_CREATE_NEW_ID,
+		SOIL_FLAG_MIPMAPS | SOIL_FLAG_INVERT_Y | SOIL_FLAG_NTSC_SAFE_RGB | SOIL_FLAG_COMPRESS_TO_DXT
+	);
+	printf("%i\n", uranus_texture);
+	/* check for an error during the load process */
+	if( 0 == uranus_texture )
+	{
+		printf( "SOIL loading error: '%s'\n", SOIL_last_result() );
+	}
+
+	pluto_texture = SOIL_load_OGL_texture
+	(
+		"pluto.jpg",
+		SOIL_LOAD_AUTO,
+		SOIL_CREATE_NEW_ID,
+		SOIL_FLAG_MIPMAPS | SOIL_FLAG_INVERT_Y | SOIL_FLAG_NTSC_SAFE_RGB | SOIL_FLAG_COMPRESS_TO_DXT
+	);
+	printf("%i\n", pluto_texture);
+	/* check for an error during the load process */
+	if( 0 == pluto_texture )
+	{
+		printf( "SOIL loading error: '%s'\n", SOIL_last_result() );
+	}
+
+	phobos_texture = SOIL_load_OGL_texture
+	(
+		"phobos.jpg",
+		SOIL_LOAD_AUTO,
+		SOIL_CREATE_NEW_ID,
+		SOIL_FLAG_MIPMAPS | SOIL_FLAG_INVERT_Y | SOIL_FLAG_NTSC_SAFE_RGB | SOIL_FLAG_COMPRESS_TO_DXT
+	);
+	printf("%i\n", phobos_texture);
+	/* check for an error during the load process */
+	if( 0 == phobos_texture )
+	{
+		printf( "SOIL loading error: '%s'\n", SOIL_last_result() );
+	}
+
+	deimos_texture = SOIL_load_OGL_texture
+	(
+		"deimos.jpg",
+		SOIL_LOAD_AUTO,
+		SOIL_CREATE_NEW_ID,
+		SOIL_FLAG_MIPMAPS | SOIL_FLAG_INVERT_Y | SOIL_FLAG_NTSC_SAFE_RGB | SOIL_FLAG_COMPRESS_TO_DXT
+	);
+	printf("%i\n", deimos_texture);
+	/* check for an error during the load process */
+	if( 0 == deimos_texture )
+	{
+		printf( "SOIL loading error: '%s'\n", SOIL_last_result() );
+	}
+
+	titan_texture = SOIL_load_OGL_texture
+	(
+		"titan.jpg",
+		SOIL_LOAD_AUTO,
+		SOIL_CREATE_NEW_ID,
+		SOIL_FLAG_MIPMAPS | SOIL_FLAG_INVERT_Y | SOIL_FLAG_NTSC_SAFE_RGB | SOIL_FLAG_COMPRESS_TO_DXT
+	);
+	printf("%i\n", titan_texture);
+	/* check for an error during the load process */
+	if( 0 == titan_texture )
+	{
+		printf( "SOIL loading error: '%s'\n", SOIL_last_result() );
+	}
+
+	iapetus_texture = SOIL_load_OGL_texture
+	(
+		"iapetus.jpg",
+		SOIL_LOAD_AUTO,
+		SOIL_CREATE_NEW_ID,
+		SOIL_FLAG_MIPMAPS | SOIL_FLAG_INVERT_Y | SOIL_FLAG_NTSC_SAFE_RGB | SOIL_FLAG_COMPRESS_TO_DXT
+	);
+	printf("%i\n", iapetus_texture);
+	/* check for an error during the load process */
+	if( 0 == iapetus_texture )
+	{
+		printf( "SOIL loading error: '%s'\n", SOIL_last_result() );
+	}
+
+	rhea_texture = SOIL_load_OGL_texture
+	(
+		"rhea.jpg",
+		SOIL_LOAD_AUTO,
+		SOIL_CREATE_NEW_ID,
+		SOIL_FLAG_MIPMAPS | SOIL_FLAG_INVERT_Y | SOIL_FLAG_NTSC_SAFE_RGB | SOIL_FLAG_COMPRESS_TO_DXT
+	);
+	printf("%i\n", rhea_texture);
+	/* check for an error during the load process */
+	if( 0 == rhea_texture )
+	{
+		printf( "SOIL loading error: '%s'\n", SOIL_last_result() );
+	}
+
+	io_texture = SOIL_load_OGL_texture
+	(
+		"io.jpg",
+		SOIL_LOAD_AUTO,
+		SOIL_CREATE_NEW_ID,
+		SOIL_FLAG_MIPMAPS | SOIL_FLAG_INVERT_Y | SOIL_FLAG_NTSC_SAFE_RGB | SOIL_FLAG_COMPRESS_TO_DXT
+	);
+	printf("%i\n", io_texture);
+	/* check for an error during the load process */
+	if( 0 == io_texture )
+	{
+		printf( "SOIL loading error: '%s'\n", SOIL_last_result() );
+	}
+
+	europa_texture = SOIL_load_OGL_texture
+	(
+		"europa.jpg",
+		SOIL_LOAD_AUTO,
+		SOIL_CREATE_NEW_ID,
+		SOIL_FLAG_MIPMAPS | SOIL_FLAG_INVERT_Y | SOIL_FLAG_NTSC_SAFE_RGB | SOIL_FLAG_COMPRESS_TO_DXT
+	);
+	printf("%i\n", europa_texture);
+	/* check for an error during the load process */
+	if( 0 == europa_texture )
+	{
+		printf( "SOIL loading error: '%s'\n", SOIL_last_result() );
+	}
+
+	ganymede_texture = SOIL_load_OGL_texture
+	(
+		"ganymede.jpg",
+		SOIL_LOAD_AUTO,
+		SOIL_CREATE_NEW_ID,
+		SOIL_FLAG_MIPMAPS | SOIL_FLAG_INVERT_Y | SOIL_FLAG_NTSC_SAFE_RGB | SOIL_FLAG_COMPRESS_TO_DXT
+	);
+	printf("%i\n", ganymede_texture);
+	/* check for an error during the load process */
+	if( 0 == ganymede_texture )
+	{
+		printf( "SOIL loading error: '%s'\n", SOIL_last_result() );
+	}
+
+	callisto_texture = SOIL_load_OGL_texture
+	(
+		"callisto.jpg",
+		SOIL_LOAD_AUTO,
+		SOIL_CREATE_NEW_ID,
+		SOIL_FLAG_MIPMAPS | SOIL_FLAG_INVERT_Y | SOIL_FLAG_NTSC_SAFE_RGB | SOIL_FLAG_COMPRESS_TO_DXT
+	);
+	printf("%i\n", callisto_texture);
+	/* check for an error during the load process */
+	if( 0 == callisto_texture )
+	{
+		printf( "SOIL loading error: '%s'\n", SOIL_last_result() );
+	}
+
+	asteroid_texture = SOIL_load_OGL_texture
+	(
+		"asteroid.jpg",
+		SOIL_LOAD_AUTO,
+		SOIL_CREATE_NEW_ID,
+		SOIL_FLAG_MIPMAPS | SOIL_FLAG_INVERT_Y | SOIL_FLAG_NTSC_SAFE_RGB | SOIL_FLAG_COMPRESS_TO_DXT
+	);
+	printf("%i\n", asteroid_texture);
+	/* check for an error during the load process */
+	if( 0 == asteroid_texture )
+	{
+		printf( "SOIL loading error: '%s'\n", SOIL_last_result() );
+	}
+
+	mainSystem = createParticleSystem(1000);
+	mainSystem->sX = 0.0;
+
 	buildSolarSystem();
 }
 
 void mymenu(int id)
 {
 	GLfloat tempPos[3];
+	radius = sqrt(pow(zoom, 2) + pow(zoom, 2) + pow(zoom, 2));
+	eyeX = radius * cos(theta/180.0 * M_PI) * sin(phi/180.0 * M_PI);
+	eyeY = radius * sin(theta/180.0 * M_PI) * sin(phi/180.0 * M_PI);
+	eyeZ = radius * cos(theta/180.0 * M_PI);
 	switch( id )
 	{
 		case 2:
@@ -1159,82 +1856,81 @@ void mymenu(int id)
 		case 11: //Sun
 			getPosition(getPlanet(planetList,0), tempPos);
 			printf("This planet is at (%f, %f, %f).\n", tempPos[0], tempPos[1], tempPos[2]);
-			radius = sqrt(pow(zoom, 2) + pow(zoom, 2) + pow(zoom, 2));
-			eyeX = radius * cos(theta/180.0 * M_PI) * sin(phi/180.0 * M_PI);
-			eyeY = radius * sin(theta/180.0 * M_PI) * sin(phi/180.0 * M_PI);
-			eyeZ = radius * cos(theta/180.0 * M_PI);
+			lookX = tempPos[0];
+			lookY = tempPos[1];
+			lookZ = tempPos[2];
 			glutPostRedisplay();
 			break;
 		case 12: //Mercury
 			getPosition(getPlanet(planetList,1), tempPos);
 			printf("This planet is at (%f, %f, %f).\n", tempPos[0], tempPos[1], tempPos[2]);
-			eyeX = tempPos[0];
-			eyeY = tempPos[1];
-			eyeZ = tempPos[2]-3;
+			lookX = tempPos[0];
+			lookY = tempPos[1];
+			lookZ = tempPos[2];
 			glutPostRedisplay();
 			break;
 		case 13: //Venus
 			getPosition(getPlanet(planetList,2), tempPos);
 			printf("This planet is at (%f, %f, %f).\n", tempPos[0], tempPos[1], tempPos[2]);
-			eyeX = tempPos[0];
-			eyeY = tempPos[1];
-			eyeZ = tempPos[2]-3;
+			lookX = tempPos[0];
+			lookY = tempPos[1];
+			lookZ = tempPos[2];
 			glutPostRedisplay();
 			break;
 		case 14: //Earth
 			getPosition(getPlanet(planetList,3), tempPos);
 			printf("This planet is at (%f, %f, %f).\n", tempPos[0], tempPos[1], tempPos[2]);
-			eyeX = tempPos[0];
-			eyeY = tempPos[1];
-			eyeZ = tempPos[2]-5;
+			lookX = tempPos[0];
+			lookY = tempPos[1];
+			lookZ = tempPos[2]-5;
 			glutPostRedisplay();
 			break;
 		case 15: //Mars
 			getPosition(getPlanet(planetList,4), tempPos);
 			printf("This planet is at (%f, %f, %f).\n", tempPos[0], tempPos[1], tempPos[2]);
-			eyeX = tempPos[0]-1;
-			eyeY = tempPos[1];
-			eyeZ = tempPos[2]-2;
+			lookX = tempPos[0];
+			lookY = tempPos[1];
+			lookZ = tempPos[2];
 			glutPostRedisplay();
 			break;
 		case 16: //Jupiter
 			getPosition(getPlanet(planetList,5), tempPos);
 			printf("This planet is at (%f, %f, %f).\n", tempPos[0], tempPos[1], tempPos[2]);
-			eyeX = tempPos[0]-20;
-			eyeY = tempPos[1]-15;
-			eyeZ = tempPos[2]-10;
+			lookX = tempPos[0];
+			lookY = tempPos[1];
+			lookZ = tempPos[2];
 			glutPostRedisplay();
 			break;
 		case 17: //Saturn
 			getPosition(getPlanet(planetList,6), tempPos);
 			printf("This planet is at (%f, %f, %f).\n", tempPos[0], tempPos[1], tempPos[2]);
-			eyeX = tempPos[0]-5;
-			eyeY = tempPos[1]+2;
-			eyeZ = tempPos[2]-6;
+			lookX = tempPos[0];
+			lookY = tempPos[1];
+			lookZ = tempPos[2];
 			glutPostRedisplay();
 			break;
 		case 18: //Uranus
 			getPosition(getPlanet(planetList,7), tempPos);
 			printf("This planet is at (%f, %f, %f).\n", tempPos[0], tempPos[1], tempPos[2]);
-			eyeX = tempPos[0]+2;
-			eyeY = tempPos[1];
-			eyeZ = tempPos[2]+7;
+			lookX = tempPos[0];
+			lookY = tempPos[1];
+			lookZ = tempPos[2];
 			glutPostRedisplay();
 			break;
 		case 19: //Neptune
 			getPosition(getPlanet(planetList,8), tempPos);
 			printf("This planet is at (%f, %f, %f).\n", tempPos[0], tempPos[1], tempPos[2]);
-			eyeX = tempPos[0]-2;
-			eyeY = tempPos[1];
-			eyeZ = tempPos[2]+7;
+			lookX = tempPos[0];
+			lookY = tempPos[1];
+			lookZ = tempPos[2];
 			glutPostRedisplay();
 			break;
 		case 20: //Pluto
 			getPosition(getPlanet(planetList,9), tempPos);
 			printf("This planet is at (%f, %f, %f).\n", tempPos[0], tempPos[1], tempPos[2]);
-			eyeX = tempPos[0];
-			eyeY = tempPos[1];
-			eyeZ = tempPos[2];
+			lookX = tempPos[0];
+			lookY = tempPos[1];
+			lookZ = tempPos[2];
 			glutPostRedisplay();
 			break;
 		case 21 :
@@ -1271,7 +1967,7 @@ int main(int argc, char **argv)
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
 	glutInitWindowSize(500, 500);
-	glutCreateWindow("Solar System");
+	glutCreateWindow("Improved Solar System");
 	glutDisplayFunc(display);
 	glutMouseFunc(mouse);
 	glutMotionFunc(mouseZoomRotate);
